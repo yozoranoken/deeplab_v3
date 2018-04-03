@@ -98,7 +98,7 @@ envarg.add_argument(
 
 envarg.add_argument(
     '--resnet-model',
-    default='resnet_v2_50',
+    default='resnet_v2_101',
     choices=[
         'resnet_v2_50',
         'resnet_v2_101',
