@@ -35,6 +35,12 @@ envarg.add_argument(
 )
 
 envarg.add_argument(
+    '--use-cpu',
+    action='store_true',
+    help='Force use of CPU.',
+)
+
+envarg.add_argument(
     '--batch-norm-epsilon',
     type=float,
     default=1e-5,
@@ -132,6 +138,15 @@ LOG_FOLDER = args.log_dir
 TRAIN_DATASET_DIR= args.data_dir
 TRAIN_FILE = 'train.tfrecords'
 VALIDATION_FILE = 'validation.tfrecords'
+
+
+config_proto_kwargs = {}
+
+if args.use_cpu:
+    config_proto_kwargs['device_count'] = {'GPU': 0}
+
+config = tf.ConfigProto(**config_proto_kwargs)
+
 
 training_filenames = [os.path.join(TRAIN_DATASET_DIR,TRAIN_FILE)]
 training_dataset = tf.data.TFRecordDataset(training_filenames)
@@ -248,7 +263,7 @@ saver = tf.train.Saver()
 
 current_best_val_loss = np.inf
 
-with tf.Session() as sess:
+with tf.Session(config=config) as sess:
     # Create the summary writer -- to write all the tboard_log
     # into a specified file. This file can be later read
     # by tensorboard.
