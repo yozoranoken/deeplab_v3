@@ -364,8 +364,8 @@ with tf.Session(config=config) as sess:
             validation_average_loss+=val_loss
             validation_average_miou+=sess.run(miou)
 
-        validation_average_loss/=validation_steps
-        validation_average_miou/=validation_steps
+        validation_average_loss /= validation_steps
+        validation_average_miou /= validation_steps
 
         # keep running average of the miou and validation loss
         validation_running_loss.append(validation_average_loss)
