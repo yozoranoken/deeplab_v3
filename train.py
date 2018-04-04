@@ -35,10 +35,12 @@ envarg.add_argument(
 )
 
 envarg.add_argument(
-    '--use-cpu',
-    action='store_true',
-    help='Force use of CPU.',
+    '--log-folder-name',
+    type=str,
+    help='Name of the log folder',
+    default='TFLogs',
 )
+
 
 envarg.add_argument(
     '--batch-norm-epsilon',
@@ -97,6 +99,12 @@ envarg.add_argument(
 )
 
 envarg.add_argument(
+    '--use-cpu',
+    action='store_true',
+    help='Force use of CPU.',
+)
+
+envarg.add_argument(
     '--resnet-model',
     default='resnet_v2_101',
     choices=[
@@ -131,7 +139,22 @@ trainarg.add_argument(
     help='Batch size for network train.',
 )
 
+trainarg.add_argument(
+    '--train-steps-before-eval',
+    type=int,
+    default=100,
+    help='Number of training steps to take before evaluation.',
+)
+
+trainarg.add_argument(
+    '--num-validation-steps',
+    type=int,
+    default=20,
+    help='Number of validation steps.',
+)
+
 args = parser.parse_args()
+
 os.environ['CUDA_VISIBLE_DEVICES'] = str(args.gpu_id)
 
 LOG_FOLDER = args.log_dir
@@ -292,8 +315,8 @@ with tf.Session(config=config) as sess:
 
     validation_running_loss = []
 
-    train_steps_before_eval = 100
-    validation_steps = 20
+    train_steps_before_eval = args.train_steps_before_eval
+    validation_steps = args.num_validation_steps
     while True:
         training_average_loss = 0
 
