@@ -3,6 +3,7 @@ import argparse
 import json
 import network
 import os
+from pathlib import Path
 
 import numpy as np
 import tensorflow as tf
@@ -29,7 +30,7 @@ envarg.add_argument(
 
 envarg.add_argument(
     '--log-dir',
-    type=str,
+    type=Path,
     required=True,
     help='Location of log directory.',
 )
@@ -157,8 +158,10 @@ args = parser.parse_args()
 
 os.environ['CUDA_VISIBLE_DEVICES'] = str(args.gpu_id)
 
-LOG_FOLDER = args.log_dir
-TRAIN_DATASET_DIR= args.data_dir
+BASE_PATH = Path(os.path.dirname(os.path.abspath(__file__)))
+CHECKPOINTS_PATH = BASE_PATH / 'resnet' / 'checkpoints'
+
+TRAIN_DATASET_DIR = args.data_dir
 TRAIN_FILE = 'train.tfrecords'
 VALIDATION_FILE = 'validation.tfrecords'
 
@@ -290,21 +293,27 @@ with tf.Session(config=config) as sess:
     # Create the summary writer -- to write all the tboard_log
     # into a specified file. This file can be later read
     # by tensorboard.
-    train_writer = tf.summary.FileWriter(LOG_FOLDER + '/train', sess.graph)
-    test_writer = tf.summary.FileWriter(LOG_FOLDER + '/val')
+    log_dir_path = args.log_dir / args.log_folder_name
+    train_dir_path = log_dir_path / 'train'
+
+    train_writer = tf.summary.FileWriter(str(train_dir_path), sess.graph)
+    test_writer = tf.summary.FileWriter(str(log_dir_path / 'val'))
 
     # Create a saver.
     sess.run(tf.local_variables_initializer())
     sess.run(tf.global_variables_initializer())
 
-    try:
-        restorer.restore(
-            sess, './resnet/checkpoints/' + args.resnet_model + '.ckpt')
-        print('Model checkpoits for ' + args.resnet_model + ' restored!')
-    except FileNotFoundError:
-        print('Please download ' + args.resnet_model +
-              ' model checkpoints from: ' +
-              'https://github.com/tensorflow/models/tree/master/research/slim')
+    if (train_dir_path / 'checkpoint').is_file():
+        incumbent = tf.train.latest_checkpoint(str(train_dir_path))
+        saver.restore(sess, incumbent)
+        print('Restored saved model...', incumbent)
+    else:
+        try:
+            restorer.restore(
+                sess, str(CHECKPOINTS_PATH / (args.resnet_model + '.ckpt')))
+            print('Model checkpoits for ' + args.resnet_model + ' restored!')
+        except FileNotFoundError:
+            print('Run "./download_resnet.sh" to download desired resnet model.')
 
     # The `Iterator.string_handle()` method returns a tensor that can be evaluated
     # and used to feed the `handle` placeholder.
@@ -371,7 +380,10 @@ with tf.Session(config=config) as sess:
 
         if validation_global_loss < current_best_val_loss:
             # Save the variables to disk.
-            save_path = saver.save(sess, LOG_FOLDER + '/train' + '/model.ckpt')
+            save_path = saver.save(
+                sess,
+                str(log_dir_path / 'train' / 'model.ckpt'),
+            )
             print('Model checkpoints written! Best average val loss:',
                   validation_global_loss)
             current_best_val_loss = validation_global_loss
@@ -379,8 +391,9 @@ with tf.Session(config=config) as sess:
             # update metadata and save it
             args.current_best_val_loss = str(current_best_val_loss)
 
-            with open(LOG_FOLDER + '/train/' + 'data.json', 'w') as fp:
-                json.dump(args.__dict__, fp, sort_keys=True, indent=4)
+            with open(str(log_dir_path / 'train' / 'data.json'), 'w') as fp:
+                args_dict = {k: str(v) for k, v in args.__dict__.items()}
+                json.dump(args_dict, fp, sort_keys=True, indent=4)
 
         print('Global step:', global_step_np, 'Average train loss:',
               training_average_loss, '\tGlobal Validation Avg Loss:',
