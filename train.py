@@ -1,6 +1,7 @@
 #! /usr/bin/env python3
 import argparse
 import json
+import logging
 import network
 import os
 from pathlib import Path
@@ -17,8 +18,17 @@ from preprocessing.read_data import random_flip_image_and_annotation
 from preprocessing.read_data import distort_randomly_image_color
 
 
-parser = argparse.ArgumentParser()
+# set logging configurations
+log = logging.getLogger('train')
+log.setLevel(logging.DEBUG)
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+fh = logging.FileHandler('train.log')
+fh.setLevel(logging.DEBUG)
+fh.setFormatter(formatter)
+log.addHandler(fh)
 
+
+parser = argparse.ArgumentParser()
 envarg = parser.add_argument_group('Training params')
 
 envarg.add_argument(
@@ -245,8 +255,8 @@ cross_entropy_tf = tf.reduce_mean(cross_entropies)
 predictions_tf = tf.argmax(logits_tf, axis=3)
 
 tf.summary.scalar('cross_entropy', cross_entropy_tf)
-#tf.summary.image("prediction", tf.expand_dims(tf.cast(pred, tf.float32),3), 1)
-#tf.summary.image("label", tf.expand_dims(tf.cast(batch_labels, tf.float32),3), 1)
+# tf.summary.image("prediction", tf.expand_dims(tf.cast(pred, tf.float32),3), 1)
+# tf.summary.image("label", tf.expand_dims(tf.cast(batch_labels, tf.float32),3), 1)
 
 with tf.variable_scope('optimizer_vars'):
     global_step = tf.Variable(0, trainable=False)
@@ -259,7 +269,6 @@ with tf.variable_scope('optimizer_vars'):
 process_str_id = str(os.getpid())
 merged_summary_op = tf.summary.merge_all()
 
-#print(end_points)
 variables_to_restore = slim.get_variables_to_restore(
     exclude=[
         args.resnet_model + '/logits',
@@ -300,14 +309,15 @@ with tf.Session(config=config) as sess:
     if (train_dir_path / 'checkpoint').is_file():
         incumbent = tf.train.latest_checkpoint(str(train_dir_path))
         saver.restore(sess, incumbent)
-        print('Restored saved model...', incumbent)
+        log.info('Restored saved model from %s', incumbent)
     else:
         try:
             restorer.restore(
                 sess, str(CHECKPOINTS_PATH / (args.resnet_model + '.ckpt')))
-            print('Model checkpoits for ' + args.resnet_model + ' restored!')
+            log.info('Model checkpoints for %s restored!', args.resnet_model)
         except FileNotFoundError:
-            print('Run "./download_resnet.sh" to download desired resnet model.')
+            log.error('Run "./download_resnet.sh" to download desired ' +
+                      'resnet model.')
 
     # The `Iterator.string_handle()` method returns a tensor that can be evaluated
     # and used to feed the `handle` placeholder.
@@ -378,8 +388,8 @@ with tf.Session(config=config) as sess:
                 sess,
                 str(log_dir_path / 'train' / 'model.ckpt'),
             )
-            print('Model checkpoints written! Best average val loss:',
-                  validation_global_loss)
+            log.info('Saved model checkpoints')
+            log.info('Best Average Loss: %s', validation_global_loss)
             current_best_val_loss = validation_global_loss
 
             # update metadata and save it
@@ -389,9 +399,17 @@ with tf.Session(config=config) as sess:
                 args_dict = {k: str(v) for k, v in args.__dict__.items()}
                 json.dump(args_dict, fp, sort_keys=True, indent=4)
 
-        print('Global step:', global_step_np, 'Average train loss:',
-              training_average_loss, '\tGlobal Validation Avg Loss:',
-              validation_global_loss, 'MIoU:', validation_average_miou)
+        log.info(
+            '\n' +
+            'Global Step: ----------------- %s\n' +
+            'Average Train Loss: ---------- %s\n' +
+            'Global Validation Ave. Loss: - %s\n' +
+            'MIoU: ------------------------ %s',
+            global_step_np,
+            training_average_loss,
+            validation_global_loss,
+            validation_average_miou,
+        )
 
         test_writer.add_summary(summary_string, global_step_np)
 
