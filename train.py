@@ -258,12 +258,6 @@ with tf.variable_scope('optimizer_vars'):
 # Put all summary ops into one op. Produces string when you run it.
 process_str_id = str(os.getpid())
 merged_summary_op = tf.summary.merge_all()
-LOG_FOLDER = os.path.join(LOG_FOLDER, process_str_id)
-
-# Create the tboard_log folder if doesn't exist yet
-if not os.path.exists(LOG_FOLDER):
-    print('Tensoboard folder:', LOG_FOLDER)
-    os.makedirs(LOG_FOLDER)
 
 #print(end_points)
 variables_to_restore = slim.get_variables_to_restore(
