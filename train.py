@@ -396,7 +396,9 @@ with tf.Session(config=config) as sess:
             args.current_best_val_loss = str(current_best_val_loss)
 
             with open(str(log_dir_path / 'train' / 'data.json'), 'w') as fp:
-                args_dict = {k: str(v) for k, v in args.__dict__.items()}
+                args_dict = {}
+                for k, v in args.__dict__.items():
+                    args_dict[k] = str(v) if isinstance(v, Path) else v
                 json.dump(args_dict, fp, sort_keys=True, indent=4)
 
         log.info(
